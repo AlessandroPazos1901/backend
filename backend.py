@@ -1,6 +1,5 @@
 # api_server.py
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -124,7 +123,6 @@ async def receive_raspberry_data(
         conn = sqlite3.connect('raspberry_data.db')
         cursor = conn.cursor()
         
-        img_filename = f"https://backend-3q27.onrender.com/{image_filename}"
         # Insertar detección
         cursor.execute('''
             INSERT INTO detections 
@@ -139,7 +137,7 @@ async def receive_raspberry_data(
             humidity,
             latitude,
             longitude,
-            img_filename,
+            image_filename,
             confidence
         ))
         
@@ -158,7 +156,7 @@ async def receive_raspberry_data(
         return {
             "status": "success", 
             "message": f"Data received successfully from {raspberry_id}",
-            "image_path": f'/{img_filename}',
+            "image_path": image_filename,
             "detections": detection_count
         }
     
