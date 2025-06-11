@@ -21,11 +21,12 @@ app.add_middleware(
 )
 
 # Crear directorios necesarios
-os.makedirs("images", exist_ok=True)
+IMAGES_DIR = "images"
+os.makedirs(IMAGES_DIR, exist_ok=True)
 os.makedirs("static", exist_ok=True)
 
-# Servir archivos estáticos (imágenes)
-app.mount("/images", StaticFiles(directory="images"), name="images")
+# Servir archivos estáticos (imágenes) - SOLO UNA RUTA
+app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
 # Base de datos
 def init_db():
@@ -41,7 +42,8 @@ def init_db():
             humidity REAL,
             latitude REAL,
             longitude REAL,
-            image_path TEXT,
+            image_filename TEXT,
+            image_url TEXT,
             confidence REAL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
@@ -84,6 +86,11 @@ async def startup_event():
 async def root():
     return {"message": "Raspberry Pi Data Receiver API", "status": "running"}
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
 @app.post("/api/raspberry-data")
 async def receive_raspberry_data(
     raspberry_id: str = Form(...),
@@ -103,12 +110,19 @@ async def receive_raspberry_data(
         # Crear nombre único para la imagen
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
         image_extension = image.filename.split('.')[-1] if '.' in image.filename else 'jpg'
-        image_filename = f"images/{raspberry_id}_{timestamp}.{image_extension}"
+        image_filename = f"{raspberry_id}_{timestamp}.{image_extension}"
+        image_path = os.path.join(IMAGES_DIR, image_filename)
         
         # Guardar imagen
-        with open(image_filename, "wb") as f:
+        with open(image_path, "wb") as f:
             content = await image.read()
             f.write(content)
+        
+        # Crear URL completa para la imagen
+        # En producción, usa tu dominio de Render
+        # En desarrollo, usa localhost
+        base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        image_url = f"{base_url}/images/{image_filename}"
         
         # Guardar en base de datos
         conn = sqlite3.connect('raspberry_data.db')
@@ -118,8 +132,8 @@ async def receive_raspberry_data(
         cursor.execute('''
             INSERT INTO detections 
             (raspberry_id, timestamp, detection_count, temperature, humidity, 
-             latitude, longitude, image_path, confidence)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             latitude, longitude, image_filename, image_url, confidence)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             raspberry_id, 
             datetime.now().isoformat(),
@@ -129,6 +143,7 @@ async def receive_raspberry_data(
             latitude,
             longitude,
             image_filename,
+            image_url,
             confidence
         ))
         
@@ -143,11 +158,13 @@ async def receive_raspberry_data(
         conn.close()
         
         print(f"✅ Datos recibidos de {raspberry_id}: {detection_count} detecciones")
+        print(f"🖼️ Imagen guardada: {image_url}")
         
         return {
             "status": "success", 
             "message": f"Data received successfully from {raspberry_id}",
-            "image_path": image_filename,
+            "image_filename": image_filename,
+            "image_url": image_url,
             "detections": detection_count
         }
     
@@ -183,16 +200,16 @@ async def get_raspberry_images(raspberry_id: str, limit: int = 20):
     conn = sqlite3.connect('raspberry_data.db')
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT id, timestamp, detection_count, confidence, image_path, 
-               temperature, humidity
+        SELECT id, timestamp, detection_count, confidence, image_filename, 
+               image_url, temperature, humidity
         FROM detections 
         WHERE raspberry_id = ?
         ORDER BY timestamp DESC 
         LIMIT ?
     ''', (raspberry_id, limit))
     
-    columns = ['id', 'timestamp', 'detection_count', 'confidence', 'image_path',
-               'temperature', 'humidity']
+    columns = ['id', 'timestamp', 'detection_count', 'confidence', 'image_filename',
+               'image_url', 'temperature', 'humidity']
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
     conn.close()
     
@@ -211,7 +228,7 @@ async def get_latest_data(limit: int = 50):
     
     columns = ['id', 'raspberry_id', 'timestamp', 'detection_count',
                'temperature', 'humidity', 'latitude', 'longitude',
-               'image_path', 'confidence', 'created_at']
+               'image_filename', 'image_url', 'confidence', 'created_at']
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
     conn.close()
     
@@ -255,18 +272,39 @@ async def get_statistics():
         "detections_by_pi": detections_by_pi
     }
 
-@app.get("/image/{image_path:path}")
-async def get_image(image_path: str):
-    """Servir imágenes directamente"""
+# Endpoint para verificar si una imagen existe
+@app.get("/api/image-exists/{image_filename}")
+async def check_image_exists(image_filename: str):
+    """Verificar si una imagen existe"""
+    image_path = os.path.join(IMAGES_DIR, image_filename)
+    exists = os.path.exists(image_path)
+    
+    return {
+        "filename": image_filename,
+        "exists": exists,
+        "path": image_path if exists else None
+    }
+
+# Endpoint alternativo para servir imágenes (por si acaso)
+@app.get("/api/image/{image_filename}")
+async def get_image_file(image_filename: str):
+    """Servir imagen específica"""
+    image_path = os.path.join(IMAGES_DIR, image_filename)
+    
     if not os.path.exists(image_path):
         raise HTTPException(status_code=404, detail="Image not found")
     
-    return FileResponse(image_path)
+    return FileResponse(
+        image_path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "max-age=3600"}
+    )
 
 if __name__ == "__main__":
     print("🍓 Iniciando servidor FastAPI para Raspberry Pi...")
     print("📍 Servidor corriendo en: http://localhost:8000")
     print("📚 Documentación API: http://localhost:8000/docs")
+    print("🖼️ Imágenes disponibles en: http://localhost:8000/images/")
     
     uvicorn.run(
         app, 
