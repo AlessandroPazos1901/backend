@@ -121,7 +121,7 @@ async def receive_raspberry_data(
         # Crear URL completa para la imagen
         # En producción, usa tu dominio de Render
         # En desarrollo, usa localhost
-        base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        base_url = os.getenv("BASE_URL")
         image_url = f"{base_url}/images/{image_filename}"
         
         # Guardar en base de datos
