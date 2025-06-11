@@ -91,8 +91,11 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+from fastapi import Request  # Asegúrate de importar esto también
+
 @app.post("/api/raspberry-data")
 async def receive_raspberry_data(
+    request: Request,  # 👈 agregado para capturar la URL base real
     raspberry_id: str = Form(...),
     detection_count: int = Form(...),
     temperature: float = Form(...),
@@ -110,30 +113,28 @@ async def receive_raspberry_data(
         # Crear nombre único para la imagen
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
         image_extension = image.filename.split('.')[-1] if '.' in image.filename else 'jpg'
-        image_filename = f"{raspberry_id}_{timestamp}.{image_extension}"
-        image_path = os.path.join(IMAGES_DIR, image_filename)
+        filename = f"{raspberry_id}_{timestamp}.{image_extension}"
+        local_path = f"images/{filename}"
         
-        # Guardar imagen
-        with open(image_path, "wb") as f:
+        # Guardar imagen en carpeta
+        os.makedirs("images", exist_ok=True)
+        with open(local_path, "wb") as f:
             content = await image.read()
             f.write(content)
-        
-        # Crear URL completa para la imagen
-        # En producción, usa tu dominio de Render
-        # En desarrollo, usa localhost
-        base_url = os.getenv("BASE_URL", "http://localhost:8000")
-        image_url = f"{base_url}/images/{image_filename}"
+
+        # ✅ Generar URL pública de la imagen
+        base_url = str(request.base_url).rstrip("/")
+        image_url = f"{base_url}/images/{filename}"
         
         # Guardar en base de datos
         conn = sqlite3.connect('raspberry_data.db')
         cursor = conn.cursor()
         
-        # Insertar detección
         cursor.execute('''
             INSERT INTO detections 
             (raspberry_id, timestamp, detection_count, temperature, humidity, 
-             latitude, longitude, image_filename, image_url, confidence)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             latitude, longitude, image_path, confidence)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             raspberry_id, 
             datetime.now().isoformat(),
@@ -142,12 +143,10 @@ async def receive_raspberry_data(
             humidity,
             latitude,
             longitude,
-            image_filename,
-            image_url,
+            image_url,  # 👈 usar la URL pública aquí
             confidence
         ))
         
-        # Actualizar última conexión del Raspberry Pi
         cursor.execute('''
             UPDATE raspberry_info 
             SET last_seen = ?, latitude = ?, longitude = ?
@@ -158,13 +157,11 @@ async def receive_raspberry_data(
         conn.close()
         
         print(f"✅ Datos recibidos de {raspberry_id}: {detection_count} detecciones")
-        print(f"🖼️ Imagen guardada: {image_url}")
         
         return {
             "status": "success", 
             "message": f"Data received successfully from {raspberry_id}",
-            "image_filename": image_filename,
-            "image_url": image_url,
+            "image_path": image_url,
             "detections": detection_count
         }
     
