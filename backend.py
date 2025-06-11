@@ -96,7 +96,6 @@ from fastapi import Request  # Asegúrate de importar esto también
 
 @app.post("/api/raspberry-data")
 async def receive_raspberry_data(
-    request: Request,  # 👈 agregado para capturar la URL base real
     raspberry_id: str = Form(...),
     detection_count: int = Form(...),
     temperature: float = Form(...),
@@ -114,23 +113,19 @@ async def receive_raspberry_data(
         # Crear nombre único para la imagen
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
         image_extension = image.filename.split('.')[-1] if '.' in image.filename else 'jpg'
-        filename = f"{raspberry_id}_{timestamp}.{image_extension}"
-        local_path = f"images/{filename}"
+        image_filename = f"images/{raspberry_id}_{timestamp}.{image_extension}"
         
-        # Guardar imagen en carpeta
-        os.makedirs("images", exist_ok=True)
-        with open(local_path, "wb") as f:
+        # Guardar imagen
+        with open(image_filename, "wb") as f:
             content = await image.read()
             f.write(content)
-
-        # ✅ Generar URL pública de la imagen
-        base_url = "https://backend-3q27.onrender.com"#str(request.base_url).rstrip("/")
-        image_url = f"{base_url}/images/{filename}"
         
         # Guardar en base de datos
         conn = sqlite3.connect('raspberry_data.db')
         cursor = conn.cursor()
         
+        img_filename = f"https://backend-3q27.onrender.com/{image_filename}"
+        # Insertar detección
         cursor.execute('''
             INSERT INTO detections 
             (raspberry_id, timestamp, detection_count, temperature, humidity, 
@@ -144,10 +139,11 @@ async def receive_raspberry_data(
             humidity,
             latitude,
             longitude,
-            image_url,  # 👈 usar la URL pública aquí
+            img_filename,
             confidence
         ))
         
+        # Actualizar última conexión del Raspberry Pi
         cursor.execute('''
             UPDATE raspberry_info 
             SET last_seen = ?, latitude = ?, longitude = ?
@@ -162,7 +158,7 @@ async def receive_raspberry_data(
         return {
             "status": "success", 
             "message": f"Data received successfully from {raspberry_id}",
-            "image_path": image_url,
+            "image_path": f'/{img_filename}',
             "detections": detection_count
         }
     
