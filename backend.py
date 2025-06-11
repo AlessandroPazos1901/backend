@@ -91,8 +91,6 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
-from fastapi import Request  # Asegúrate de importar esto también
-
 @app.post("/api/raspberry-data")
 async def receive_raspberry_data(
     raspberry_id: str = Form(...),
@@ -112,12 +110,19 @@ async def receive_raspberry_data(
         # Crear nombre único para la imagen
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
         image_extension = image.filename.split('.')[-1] if '.' in image.filename else 'jpg'
-        image_filename = f"images/{raspberry_id}_{timestamp}.{image_extension}"
+        image_filename = f"{raspberry_id}_{timestamp}.{image_extension}"
+        image_path = os.path.join(IMAGES_DIR, image_filename)
         
         # Guardar imagen
-        with open(image_filename, "wb") as f:
+        with open(image_path, "wb") as f:
             content = await image.read()
             f.write(content)
+        
+        # Crear URL completa para la imagen
+        # En producción, usa tu dominio de Render
+        # En desarrollo, usa localhost
+        base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        image_url = f"{base_url}/images/{image_filename}"
         
         # Guardar en base de datos
         conn = sqlite3.connect('raspberry_data.db')
@@ -127,8 +132,8 @@ async def receive_raspberry_data(
         cursor.execute('''
             INSERT INTO detections 
             (raspberry_id, timestamp, detection_count, temperature, humidity, 
-             latitude, longitude, image_path, confidence)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             latitude, longitude, image_filename, image_url, confidence)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             raspberry_id, 
             datetime.now().isoformat(),
@@ -138,6 +143,7 @@ async def receive_raspberry_data(
             latitude,
             longitude,
             image_filename,
+            image_url,
             confidence
         ))
         
@@ -152,11 +158,13 @@ async def receive_raspberry_data(
         conn.close()
         
         print(f"✅ Datos recibidos de {raspberry_id}: {detection_count} detecciones")
+        print(f"🖼️ Imagen guardada: {image_url}")
         
         return {
             "status": "success", 
             "message": f"Data received successfully from {raspberry_id}",
-            "image_path": image_filename,
+            "image_filename": image_filename,
+            "image_url": image_url,
             "detections": detection_count
         }
     
