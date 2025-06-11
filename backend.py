@@ -124,7 +124,7 @@ async def receive_raspberry_data(
             f.write(content)
 
         # ✅ Generar URL pública de la imagen
-        base_url = str(request.base_url).rstrip("/")
+        base_url = "https://backend-3q27.onrender.com"#str(request.base_url).rstrip("/")
         image_url = f"{base_url}/images/{filename}"
         
         # Guardar en base de datos
