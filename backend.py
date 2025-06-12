@@ -1,5 +1,5 @@
 # api_server.py
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -127,7 +127,22 @@ async def receive_raspberry_data(
         # Guardar en base de datos
         conn = sqlite3.connect('raspberry_data.db')
         cursor = conn.cursor()
-        
+
+        # Verificar si el Raspberry Pi ya existe, si no, lo insertamos
+        cursor.execute('SELECT COUNT(*) FROM raspberry_info WHERE raspberry_id = ?', (raspberry_id,))
+        if cursor.fetchone()[0] == 0:
+            cursor.execute('''
+                INSERT INTO raspberry_info (raspberry_id, name, location, latitude, longitude, last_seen, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                raspberry_id,
+                f"Raspberry {raspberry_id[-4:]}",  # Nombre por defecto
+                "Ubicación desconocida",
+                latitude,
+                longitude,
+                datetime.now().isoformat(),
+                "online"
+            ))
         # Insertar detección
         cursor.execute('''
             INSERT INTO detections 
@@ -299,6 +314,21 @@ async def get_image_file(image_filename: str):
         media_type="image/jpeg",
         headers={"Cache-Control": "max-age=3600"}
     )
+
+@app.delete("/api/delete-all")
+async def delete_all_data(admin_key: str = Header(...)):
+    if admin_key != "SECRET123":  # Cambia esto por una clave segura
+        raise HTTPException(status_code=403, detail="No autorizado")
+
+    conn = sqlite3.connect('raspberry_data.db')
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM detections")
+    cursor.execute("DELETE FROM raspberry_info")
+    conn.commit()
+    conn.close()
+
+    return {"status": "success", "message": "Todos los datos han sido eliminados"}
+
 
 if __name__ == "__main__":
     print("🍓 Iniciando servidor FastAPI para Raspberry Pi...")
