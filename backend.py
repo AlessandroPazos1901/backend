@@ -67,9 +67,9 @@ def init_db():
         INSERT OR IGNORE INTO raspberry_info 
         (raspberry_id, name, location, latitude, longitude, last_seen, status)
         VALUES 
-        ('RPI_HUANUCO_001', 'Raspberry Pi Centro', 'Centro de Huánuco', -9.9306, -76.2422, 0, 'online'),
-        ('RPI_HUANUCO_002', 'Raspberry Pi Norte', 'Zona Norte', -9.9250, -76.2380, 0, 'online'),
-        ('RPI_HUANUCO_003', 'Raspberry Pi Sur', 'Zona Sur', -9.9360, -76.2470, 0, 'online')
+        ('RPI_HUANUCO_001', 'Raspberry Pi Centro', 'Centro de Huánuco', -9.9306, -76.2422, ?, 'online'),
+        ('RPI_HUANUCO_002', 'Raspberry Pi Norte', 'Zona Norte', -9.9250, -76.2380, ?, 'online'),
+        ('RPI_HUANUCO_003', 'Raspberry Pi Sur', 'Zona Sur', -9.9360, -76.2470, ?, 'online')
     ''', (datetime.now().isoformat(), datetime.now().isoformat(), datetime.now().isoformat()))
     
     conn.commit()
