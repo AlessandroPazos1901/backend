@@ -180,7 +180,7 @@ async def get_raspberry_locations():
     cursor.execute('''
         SELECT r.raspberry_id, r.name, r.location, r.latitude, r.longitude, 
                r.last_seen, r.status,
-               COUNT(d.id) as total_detections,
+               COUNT(d.detection_count) as total_detections,
                MAX(d.timestamp) as last_detection
         FROM raspberry_info r
         LEFT JOIN detections d ON r.raspberry_id = d.raspberry_id
