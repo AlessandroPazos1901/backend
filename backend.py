@@ -94,6 +94,7 @@ async def health_check():
 @app.post("/api/raspberry-data")
 async def receive_raspberry_data(
     raspberry_id: str = Form(...),
+    location: str = Form(...),
     detection_count: int = Form(...),
     temperature: float = Form(...),
     humidity: float = Form(...),
@@ -127,22 +128,7 @@ async def receive_raspberry_data(
         # Guardar en base de datos
         conn = sqlite3.connect('raspberry_data.db')
         cursor = conn.cursor()
-
-        # Verificar si el Raspberry Pi ya existe, si no, lo insertamos
-        cursor.execute('SELECT COUNT(*) FROM raspberry_info WHERE raspberry_id = ?', (raspberry_id,))
-        if cursor.fetchone()[0] == 0:
-            cursor.execute('''
-                INSERT INTO raspberry_info (raspberry_id, name, location, latitude, longitude, last_seen, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                raspberry_id,
-                f"Raspberry {raspberry_id[-4:]}",  # Nombre por defecto
-                "Ubicación desconocida",
-                latitude,
-                longitude,
-                datetime.now().isoformat(),
-                "online"
-            ))
+        
         # Insertar detección
         cursor.execute('''
             INSERT INTO detections 
@@ -165,9 +151,9 @@ async def receive_raspberry_data(
         # Actualizar última conexión del Raspberry Pi
         cursor.execute('''
             UPDATE raspberry_info 
-            SET last_seen = ?, latitude = ?, longitude = ?
+            SET last_seen = ?, latitude = ?, longitude = ?, location = ?
             WHERE raspberry_id = ?
-        ''', (datetime.now().isoformat(), latitude, longitude, raspberry_id))
+        ''', (datetime.now().isoformat(), latitude, longitude, raspberry_id,location))
         
         conn.commit()
         conn.close()
@@ -186,7 +172,7 @@ async def receive_raspberry_data(
     except Exception as e:
         print(f"❌ Error procesando datos de {raspberry_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing data: {str(e)}")
-
+        
 @app.get("/api/raspberry-locations")
 async def get_raspberry_locations():
     """Obtener ubicaciones de todos los Raspberry Pi"""
