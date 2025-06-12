@@ -128,7 +128,22 @@ async def receive_raspberry_data(
         # Guardar en base de datos
         conn = sqlite3.connect('raspberry_data.db')
         cursor = conn.cursor()
-        
+        # Verificar si el Raspberry Pi ya existe, si no, lo insertamos
+        cursor.execute('SELECT COUNT(*) FROM raspberry_info WHERE raspberry_id = ?', (raspberry_id,))
+        if cursor.fetchone()[0] == 0:
+            cursor.execute('''
+                INSERT INTO raspberry_info (raspberry_id, name, location, latitude, longitude, last_seen, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                raspberry_id,
+                f"Raspberry {raspberry_id[-4:]}",  # Nombre por defecto
+                location,
+                latitude,
+                longitude,
+                datetime.now().isoformat(),
+                "online"
+            ))
+            
         # Insertar detección
         cursor.execute('''
             INSERT INTO detections 
