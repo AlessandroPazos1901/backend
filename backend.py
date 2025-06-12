@@ -1,5 +1,5 @@
 # api_server.py
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Header
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -315,19 +315,47 @@ async def get_image_file(image_filename: str):
         headers={"Cache-Control": "max-age=3600"}
     )
 
-@app.delete("/api/delete-all")
-async def delete_all_data(admin_key: str = Header(...)):
-    if admin_key != "SECRET123":  # Cambia esto por una clave segura
+@app.delete("/api/delete-data")
+async def delete_data(
+    admin_key: str = Header(...), # Para recibir tokens, API keys o claves
+    raspberry_id: str = Query(None),
+    start_date: str = Query(None),  # formato: "2024-01-01"
+    end_date: str = Query(None)     # formato: "2024-12-31"
+):
+    if admin_key != "SECRET123":
         raise HTTPException(status_code=403, detail="No autorizado")
 
-    conn = sqlite3.connect('raspberry_data.db')
+    conn = sqlite3.connect("raspberry_data.db")
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM detections")
-    cursor.execute("DELETE FROM raspberry_info")
-    conn.commit()
-    conn.close()
 
-    return {"status": "success", "message": "Todos los datos han sido eliminados"}
+    try:
+        # 🔁 Caso 1: Borrar por rango de fechas
+        if start_date and end_date:
+            cursor.execute('''
+                DELETE FROM detections
+                WHERE DATE(timestamp) BETWEEN ? AND ?
+            ''', (start_date, end_date))
+            conn.commit()
+            return {"status": "success", "message": f"Se eliminaron datos entre {start_date} y {end_date}"}
+
+        # 🎯 Caso 2: Borrar por Raspberry ID
+        elif raspberry_id:
+            cursor.execute("DELETE FROM detections WHERE raspberry_id = ?", (raspberry_id,))
+            cursor.execute("DELETE FROM raspberry_info WHERE raspberry_id = ?", (raspberry_id,))
+            conn.commit()
+            return {"status": "success", "message": f"Datos eliminados para {raspberry_id}"}
+
+        # 🧹 Caso 3: Borrar todo
+        else:
+            cursor.execute("DELETE FROM detections")
+            cursor.execute("DELETE FROM raspberry_info")
+            conn.commit()
+            return {"status": "success", "message": "Todos los datos han sido eliminados"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al eliminar datos: {str(e)}")
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":
