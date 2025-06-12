@@ -133,7 +133,7 @@ async def receive_raspberry_data(
             INSERT INTO detections 
             (raspberry_id, timestamp, detection_count, temperature, humidity, 
              latitude, longitude, image_filename, image_url, confidence)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             raspberry_id, 
             datetime.now().isoformat(),
