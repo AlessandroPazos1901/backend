@@ -93,6 +93,7 @@ async def health_check():
 @app.post("/api/raspberry-data")
 async def receive_raspberry_data(
     raspberry_id: str = Form(...),
+    name: str = Form(...),
     location: str = Form(...),
     detection_count: int = Form(...),
     temperature: float = Form(...),
@@ -134,7 +135,7 @@ async def receive_raspberry_data(
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
                 raspberry_id,
-                f"Raspberry {raspberry_id[-4:]}",  # Nombre por defecto
+                name,  
                 location,
                 latitude,
                 longitude,
