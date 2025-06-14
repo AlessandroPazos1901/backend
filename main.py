@@ -67,7 +67,7 @@ def init_db():
         (raspberry_id, name, location, latitude, longitude, last_seen, status)
         VALUES 
         ('DIRIS_LIMA', 'Raspberry Pi DIRIS', 'El Agustino', -12.0407, -76.9951, ?, 'online'),
-        ('UPC_LIMA', 'Raspberry Pi UPC', 'Monterrico', -12.1037, -76.9630, ?, 'online'),
+        ('UPC_MONTERRICO', 'Raspberry Pi UPC', 'Monterrico', -12.1037, -76.9630, ?, 'online'),
         ('RPI_MOLINA', 'Raspberry Pi Molina', 'La Molina', -12.0729, -76.9691, ?, 'offline')
     ''', (datetime.now().isoformat(), datetime.now().isoformat(), datetime.now().isoformat()))
     
