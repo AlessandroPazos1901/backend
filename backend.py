@@ -69,7 +69,7 @@ def init_db():
         VALUES 
         ('DIRIS_LIMA', 'Raspberry Pi DIRIS', 'El Agustino', -12.0407, -76.9951, ?, 'online'),
         ('UPC_LIMA', 'Raspberry Pi UPC', 'Monterrico', -12.1037, -76.9630, ?, 'online'),
-        ('RPI_MOLINA', 'Raspberry Pi Molina', 'La Molina', -12.0729, -76.9691, ?, 'online')
+        ('RPI_MOLINA', 'Raspberry Pi Molina', 'La Molina', -12.0729, -76.9691, ?, 'offline')
     ''', (datetime.now().isoformat(), datetime.now().isoformat(), datetime.now().isoformat()))
     
     conn.commit()
