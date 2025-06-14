@@ -44,7 +44,6 @@ def init_db():
             longitude REAL,
             image_filename TEXT,
             image_url TEXT,
-            confidence REAL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -99,8 +98,7 @@ async def receive_raspberry_data(
     temperature: float = Form(...),
     humidity: float = Form(...),
     latitude: float = Form(...),
-    longitude: float = Form(...),
-    confidence: float = Form(...),
+    longitude: float = Form(...),\
     image: UploadFile = File(...)
 ):
     try:
@@ -148,8 +146,8 @@ async def receive_raspberry_data(
         cursor.execute('''
             INSERT INTO detections 
             (raspberry_id, timestamp, detection_count, temperature, humidity, 
-             latitude, longitude, image_filename, image_url, confidence)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             latitude, longitude, image_filename, image_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             raspberry_id, 
             datetime.now().isoformat(),
@@ -159,8 +157,7 @@ async def receive_raspberry_data(
             latitude,
             longitude,
             image_filename,
-            image_url,
-            confidence
+            image_url
         ))
         
         # Actualizar última conexión del Raspberry Pi
@@ -216,7 +213,7 @@ async def get_raspberry_images(raspberry_id: str, limit: int = 20):
     conn = sqlite3.connect('raspberry_data.db')
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT id, timestamp, detection_count, confidence, image_filename, 
+        SELECT id, timestamp, detection_count, image_filename, 
                image_url, temperature, humidity
         FROM detections 
         WHERE raspberry_id = ?
@@ -224,7 +221,7 @@ async def get_raspberry_images(raspberry_id: str, limit: int = 20):
         LIMIT ?
     ''', (raspberry_id, limit))
     
-    columns = ['id', 'timestamp', 'detection_count', 'confidence', 'image_filename',
+    columns = ['id', 'timestamp', 'detection_count', 'image_filename',
                'image_url', 'temperature', 'humidity']
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
     conn.close()
@@ -244,7 +241,7 @@ async def get_latest_data(limit: int = 50):
     
     columns = ['id', 'raspberry_id', 'timestamp', 'detection_count',
                'temperature', 'humidity', 'latitude', 'longitude',
-               'image_filename', 'image_url', 'confidence', 'created_at']
+               'image_filename', 'image_url', 'created_at']
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
     conn.close()
     
